@@ -10,7 +10,9 @@ import BottomNav from './components/BottomNav';
 import VisitModal from './components/VisitModal';
 import JournalPage from './components/JournalPage';
 import ProfilePage from './components/ProfilePage';
-import { auth, db, googleProvider } from './firebase';
+import { auth, db, googleProvider, firebaseConfigured } from './firebase';
+
+const LOCAL_USER = { uid: 'local', displayName: 'Local User', email: '' };
 
 function App() {
   const [visits, setVisits] = useState([]);
@@ -24,6 +26,11 @@ function App() {
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
+    if (!firebaseConfigured) {
+      setUser(LOCAL_USER);
+      setAuthLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setAuthLoading(false);
@@ -35,6 +42,11 @@ function App() {
   useEffect(() => {
     if (!user) {
       setVisits([]);
+      return;
+    }
+    if (!firebaseConfigured) {
+      const stored = localStorage.getItem('visits');
+      setVisits(stored ? JSON.parse(stored) : []);
       return;
     }
     const visitsRef = collection(db, 'users', user.uid, 'visits');
@@ -118,6 +130,15 @@ function App() {
   const handleSaveVisit = async (newVisit) => {
     if (!user) return;
     setSaveError('');
+    if (!firebaseConfigured) {
+      const saved = { ...newVisit, id: Date.now().toString() };
+      const updated = [...visits, saved];
+      setVisits(updated);
+      localStorage.setItem('visits', JSON.stringify(updated));
+      setShowModal(false);
+      setSelectedState(null);
+      return;
+    }
     try {
       const { id: _id, ...visitData } = newVisit;
       const visitsRef = collection(db, 'users', user.uid, 'visits');
@@ -132,6 +153,12 @@ function App() {
 
   const handleDeleteVisit = async (id) => {
     if (!user) return;
+    if (!firebaseConfigured) {
+      const updated = visits.filter((v) => v.id !== id);
+      setVisits(updated);
+      localStorage.setItem('visits', JSON.stringify(updated));
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'visits', id));
     } catch (err) {
@@ -141,6 +168,12 @@ function App() {
 
   const handleUpdateVisit = async (updatedVisit) => {
     if (!user) return;
+    if (!firebaseConfigured) {
+      const updated = visits.map((v) => v.id === updatedVisit.id ? updatedVisit : v);
+      setVisits(updated);
+      localStorage.setItem('visits', JSON.stringify(updated));
+      return;
+    }
     try {
       const { id, ...data } = updatedVisit;
       await updateDoc(doc(db, 'users', user.uid, 'visits', id), data);
@@ -213,9 +246,11 @@ function App() {
           <span className="brand-text">ExploreUSA</span>
           <div className="header-user">
             <span className="header-user-name">{user.displayName || user.email}</span>
-            <button type="button" className="header-signout-btn" onClick={handleSignOut}>
-              Sign out
-            </button>
+            {firebaseConfigured && (
+              <button type="button" className="header-signout-btn" onClick={handleSignOut}>
+                Sign out
+              </button>
+            )}
           </div>
         </header>
 

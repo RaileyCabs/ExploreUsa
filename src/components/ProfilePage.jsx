@@ -1,7 +1,7 @@
 ﻿import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, firebaseConfigured } from '../firebase';
 
 const LOCKED_BADGES = [
   { id: 'coast-to-coast', label: 'Coast to Coast', desc: 'Log trips in both CA and NY' },
@@ -20,6 +20,15 @@ const ProfilePage = ({ visits, user }) => {
 
   useEffect(() => {
     if (!user) return;
+    if (!firebaseConfigured) {
+      const stored = localStorage.getItem('profile');
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data.profileName) setNameInput(data.profileName);
+        if (data.profileEmail) setEmailInput(data.profileEmail);
+      }
+      return;
+    }
     const profileRef = doc(db, 'users', user.uid);
     getDoc(profileRef).then((snap) => {
       if (snap.exists()) {
@@ -33,12 +42,22 @@ const ProfilePage = ({ visits, user }) => {
   const saveName = () => {
     const val = nameInput.trim() || 'Traveler';
     setNameInput(val);
-    if (user) setDoc(doc(db, 'users', user.uid), { profileName: val }, { merge: true });
+    if (!firebaseConfigured) {
+      const stored = JSON.parse(localStorage.getItem('profile') || '{}');
+      localStorage.setItem('profile', JSON.stringify({ ...stored, profileName: val }));
+    } else if (user) {
+      setDoc(doc(db, 'users', user.uid), { profileName: val }, { merge: true });
+    }
     setEditingName(false);
   };
 
   const saveEmail = () => {
-    if (user) setDoc(doc(db, 'users', user.uid), { profileEmail: emailInput.trim() }, { merge: true });
+    if (!firebaseConfigured) {
+      const stored = JSON.parse(localStorage.getItem('profile') || '{}');
+      localStorage.setItem('profile', JSON.stringify({ ...stored, profileEmail: emailInput.trim() }));
+    } else if (user) {
+      setDoc(doc(db, 'users', user.uid), { profileEmail: emailInput.trim() }, { merge: true });
+    }
     setEditingEmail(false);
   };
 
