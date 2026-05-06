@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import './App.css';
 import { states } from './states';
 import USAMap from './components/USAMap';
@@ -21,18 +21,20 @@ function App() {
   const [selectedState, setSelectedState] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [user, setUser] = useState(null);
+  const [googleUser, setGoogleUser] = useState(null);
+  const [showEntryScreen, setShowEntryScreen] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [migrationInProgress, setMigrationInProgress] = useState(false);
 
   useEffect(() => {
     if (!firebaseConfigured) {
-      setUser(LOCAL_USER);
       setAuthLoading(false);
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
+      setGoogleUser(nextUser);
       setAuthLoading(false);
     });
 
@@ -184,8 +186,14 @@ function App() {
 
   const handleGoogleSignIn = async () => {
     setAuthError('');
+    if (!firebaseConfigured) {
+      setAuthError('Google sign-in is not available in this build. Add your Firebase Vite env values and rebuild the app.');
+      return;
+    }
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      setUser(result.user);
+      setShowEntryScreen(false);
     } catch (error) {
       const code = error?.code || '';
       if (code === 'auth/configuration-not-found') {
@@ -196,10 +204,89 @@ function App() {
     }
   };
 
+  const handleLocalContinue = () => {
+    setAuthError('');
+    setUser(LOCAL_USER);
+    setShowEntryScreen(false);
+  };
+
+  const handleContinueAsGoogleUser = () => {
+    if (!googleUser) {
+      return;
+    }
+    setAuthError('');
+    setUser(googleUser);
+    setShowEntryScreen(false);
+  };
+
+  const handleLocalAccountUpgrade = async () => {
+    if (!firebaseConfigured) {
+      setAuthError('Google sign-up is not available in this build. Add your Firebase Vite env values and rebuild the app.');
+      return;
+    }
+
+    setAuthError('');
+    setMigrationInProgress(true);
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const nextUser = result.user;
+      const storedProfile = JSON.parse(localStorage.getItem('profile') || '{}');
+      const profileData = {};
+
+      if (storedProfile.profileName) {
+        profileData.profileName = storedProfile.profileName;
+      }
+      if (storedProfile.profileEmail) {
+        profileData.profileEmail = storedProfile.profileEmail;
+      }
+
+      if (Object.keys(profileData).length > 0) {
+        await setDoc(doc(db, 'users', nextUser.uid), profileData, { merge: true });
+      }
+
+      for (const visit of visits) {
+        const { id: _id, ...visitData } = visit;
+        await addDoc(collection(db, 'users', nextUser.uid, 'visits'), visitData);
+      }
+
+      localStorage.removeItem('visits');
+      localStorage.removeItem('profile');
+
+      setGoogleUser(nextUser);
+      setUser(nextUser);
+      setShowEntryScreen(false);
+    } catch (error) {
+      const code = error?.code || '';
+      if (code === 'auth/configuration-not-found') {
+        setAuthError('Google sign-in is not enabled in Firebase yet. Enable Google in Firebase Auth -> Sign-in method.');
+      } else {
+        setAuthError(error?.message || 'Could not create your account and migrate local trips. Please try again.');
+      }
+    } finally {
+      setMigrationInProgress(false);
+    }
+  };
+
+  const handleBackToStart = () => {
+    setAuthError('');
+    setSaveError('');
+    setShowModal(false);
+    setSelectedState(null);
+    setUser(null);
+    setShowEntryScreen(true);
+  };
+
   const handleSignOut = async () => {
+    if (!firebaseConfigured || user?.uid === LOCAL_USER.uid) {
+      handleBackToStart();
+      return;
+    }
     setAuthError('');
     try {
       await signOut(auth);
+      setGoogleUser(null);
+      handleBackToStart();
     } catch (error) {
       setAuthError(error?.message || 'Sign-out failed. Please try again.');
     }
@@ -216,13 +303,60 @@ function App() {
     );
   }
 
+  if (showEntryScreen) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h1>Welcome to ExploreUSA</h1>
+          <p className="auth-subtitle">Track every state you've explored across the USA.</p>
+          <p className="auth-note">Choose how you want to start this session.</p>
+          {firebaseConfigured ? (
+            googleUser ? (
+              <button type="button" className="google-signin-btn" onClick={handleContinueAsGoogleUser}>
+                Continue as {googleUser.displayName || googleUser.email}
+              </button>
+            ) : (
+              <button type="button" className="google-signin-btn" onClick={handleGoogleSignIn}>
+                <svg className="google-icon" viewBox="0 0 48 48" width="20" height="20">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                </svg>
+                Continue with Google
+              </button>
+            )
+          ) : (
+            <button type="button" className="google-signin-btn" onClick={handleGoogleSignIn}>
+              Continue with Google
+            </button>
+          )}
+          <div className="auth-divider"><span>or</span></div>
+          <button type="button" className="local-signin-btn" onClick={handleLocalContinue}>
+            Continue as Local User
+          </button>
+          {!firebaseConfigured && (
+            <p className="auth-fine-print">Google sign-in is disabled until the Firebase Vite env values are present during build.</p>
+          )}
+          {firebaseConfigured && !googleUser && (
+            <p className="auth-fine-print">Google users can sign in, or you can skip auth and use the app locally for this session.</p>
+          )}
+          {firebaseConfigured && googleUser && (
+            <p className="auth-fine-print">You're already signed in with Google. You can continue with that account or use local mode instead.</p>
+          )}
+          {authError && <p className="auth-error">{authError}</p>}
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="auth-page">
         <div className="auth-card">
           <h1>Welcome to ExploreUSA</h1>
           <p className="auth-subtitle">Track every state you've explored across the USA.</p>
-          <p className="auth-note">Sign in or create a free account using your Google account.</p>
+          <p className="auth-note">Choose how you want to start this session.</p>
           <button type="button" className="google-signin-btn" onClick={handleGoogleSignIn}>
             <svg className="google-icon" viewBox="0 0 48 48" width="20" height="20">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -232,7 +366,11 @@ function App() {
             </svg>
             Continue with Google
           </button>
-          <p className="auth-fine-print">New users will automatically get a free account on first sign-in.</p>
+          <div className="auth-divider"><span>or</span></div>
+          <button type="button" className="local-signin-btn" onClick={handleLocalContinue}>
+            Continue as Local User
+          </button>
+          <p className="auth-fine-print">New users will automatically get a free account on first Google sign-in, or you can use local mode just for this session.</p>
           {authError && <p className="auth-error">{authError}</p>}
         </div>
       </div>
@@ -246,11 +384,9 @@ function App() {
           <span className="brand-text">ExploreUSA</span>
           <div className="header-user">
             <span className="header-user-name">{user.displayName || user.email}</span>
-            {firebaseConfigured && (
-              <button type="button" className="header-signout-btn" onClick={handleSignOut}>
-                Sign out
-              </button>
-            )}
+            <button type="button" className="header-signout-btn" onClick={handleSignOut}>
+              {user.uid === LOCAL_USER.uid ? 'Back to Start' : 'Sign out'}
+            </button>
           </div>
         </header>
 
@@ -280,7 +416,13 @@ function App() {
             />
           } />
           <Route path="/profile" element={
-            <ProfilePage visits={visits} user={user} />
+            <ProfilePage
+              visits={visits}
+              user={user}
+              onUpgradeLocalAccount={handleLocalAccountUpgrade}
+              upgradeInProgress={migrationInProgress}
+              firebaseConfigured={firebaseConfigured}
+            />
           } />
         </Routes>
 

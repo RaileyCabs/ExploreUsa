@@ -8,7 +8,9 @@ const LOCKED_BADGES = [
   { id: 'seasoned-traveler', label: 'Seasoned Traveler', desc: 'Complete trips in all 4 seasons' },
 ];
 
-const ProfilePage = ({ visits, user }) => {
+const LOCAL_USER_ID = 'local';
+
+const ProfilePage = ({ visits, user, onUpgradeLocalAccount, upgradeInProgress, firebaseConfigured }) => {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(
     () => user?.displayName || 'Traveler'
@@ -107,6 +109,26 @@ const ProfilePage = ({ visits, user }) => {
 
   return (
     <div className="profile-page">
+
+      {user?.uid === LOCAL_USER_ID && (
+        <div className="profile-card profile-upgrade-card">
+          <h3 className="profile-card-title">Save Local Trips to an Account</h3>
+          <p className="profile-upgrade-copy">
+            Sign up with Google to save your local trips to a real account. Your current visits and profile info will be copied automatically.
+          </p>
+          <button
+            type="button"
+            className="profile-upgrade-btn"
+            onClick={onUpgradeLocalAccount}
+            disabled={upgradeInProgress || !firebaseConfigured}
+          >
+            {upgradeInProgress ? 'Creating account...' : 'Sign up with Google'}
+          </button>
+          {!firebaseConfigured && (
+            <p className="profile-upgrade-note">Google sign-up is unavailable until Firebase is configured for this build.</p>
+          )}
+        </div>
+      )}
 
       {/* User Info Card */}
       <div className="profile-card profile-user-card">

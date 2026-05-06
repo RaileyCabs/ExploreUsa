@@ -129,6 +129,42 @@ header {
   flex-shrink: 0;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 16px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.local-signin-btn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.local-signin-btn:hover {
+  background: #111827;
+}
+
 .auth-fine-print {
   color: #9ca3af;
   font-size: 12px;
@@ -144,6 +180,45 @@ header {
 
 .auth-error.in-app {
   margin: 4px 0 10px;
+}
+
+.profile-upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-upgrade-copy,
+.profile-upgrade-note {
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.profile-upgrade-note {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.profile-upgrade-btn {
+  align-self: flex-start;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-upgrade-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.profile-upgrade-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 /* ── Stats Bar ── */
