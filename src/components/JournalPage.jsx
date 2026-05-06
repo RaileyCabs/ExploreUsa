@@ -5,6 +5,7 @@ import VisitModal from './VisitModal';
 const JournalPage = ({ visits, onDelete, onUpdateVisit }) => {
   const [expandedStates, setExpandedStates] = useState(() => new Set());
   const [editVisit, setEditVisit] = useState(null); // full visit object being edited
+  const [visitPendingDelete, setVisitPendingDelete] = useState(null);
 
   const groupedVisits = useMemo(() => {
     const grouped = visits.reduce((acc, visit) => {
@@ -45,6 +46,22 @@ const JournalPage = ({ visits, onDelete, onUpdateVisit }) => {
   };
 
   const closeEditModal = () => setEditVisit(null);
+
+  const openDeleteConfirm = (visit) => {
+    setVisitPendingDelete(visit);
+  };
+
+  const closeDeleteConfirm = () => {
+    setVisitPendingDelete(null);
+  };
+
+  const confirmDelete = () => {
+    if (!visitPendingDelete) {
+      return;
+    }
+    onDelete(visitPendingDelete.id);
+    setVisitPendingDelete(null);
+  };
 
   const saveEditModal = (updatedVisit) => {
     onUpdateVisit(updatedVisit);
@@ -127,7 +144,14 @@ const JournalPage = ({ visits, onDelete, onUpdateVisit }) => {
                         <div className="entry-header">
                           <span className="entry-date">📅 {visit.date || 'Date not set'}</span>
                           <span className="entry-rating">{renderStars(visit.rating)}</span>
-                          <button className="delete-entry" onClick={() => onDelete(visit.id)}>✕</button>
+                          <button
+                            type="button"
+                            className="delete-entry"
+                            onClick={() => openDeleteConfirm(visit)}
+                            aria-label={`Delete visit for ${visit.stateName} on ${visit.date || 'saved date'}`}
+                          >
+                            ✕
+                          </button>
                         </div>
 
                         <div className="entry-title">{visit.title || 'Untitled Trip'}</div>
@@ -187,6 +211,25 @@ const JournalPage = ({ visits, onDelete, onUpdateVisit }) => {
           onClose={closeEditModal}
           onSave={saveEditModal}
         />
+      )}
+
+      {visitPendingDelete && (
+        <div className="modal-overlay" onClick={closeDeleteConfirm}>
+          <div className="modal-content delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete this visit?</h3>
+              <button type="button" className="close-btn" onClick={closeDeleteConfirm}>✕</button>
+            </div>
+            <p className="delete-confirm-copy">
+              Remove <strong>{visitPendingDelete.title || 'this trip'}</strong> from {visitPendingDelete.stateName}?
+            </p>
+            <p className="delete-confirm-note">This action cannot be undone.</p>
+            <div className="form-buttons delete-confirm-actions">
+              <button type="button" className="cancel-btn" onClick={closeDeleteConfirm}>Keep visit</button>
+              <button type="button" className="save-btn delete-confirm-btn" onClick={confirmDelete}>Delete visit</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

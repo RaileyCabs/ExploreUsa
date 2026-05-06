@@ -1008,6 +1008,34 @@ form textarea:focus {
   color: #9f2b1f;
 }
 
+.delete-confirm-modal {
+  max-width: 420px;
+}
+
+.delete-confirm-copy {
+  color: #1f2937;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.delete-confirm-note {
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.delete-confirm-actions {
+  margin-top: 20px;
+}
+
+.delete-confirm-btn {
+  background: #dc2626;
+}
+
+.delete-confirm-btn:hover {
+  background: #b91c1c;
+}
+
 .entry-title {
   font-size: 13px;
   font-weight: 700;
