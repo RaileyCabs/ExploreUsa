@@ -1,30 +1,44 @@
-﻿import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const LOCKED_BADGES = [
   { id: 'coast-to-coast', label: 'Coast to Coast', desc: 'Log trips in both CA and NY' },
   { id: 'seasoned-traveler', label: 'Seasoned Traveler', desc: 'Complete trips in all 4 seasons' },
 ];
 
-const ProfilePage = ({ visits }) => {
+const ProfilePage = ({ visits, user }) => {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(
-    () => localStorage.getItem('profileName') || 'Traveler'
+    () => user?.displayName || 'Traveler'
   );
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailInput, setEmailInput] = useState(
-    () => localStorage.getItem('profileEmail') || ''
+    () => user?.email || ''
   );
+
+  useEffect(() => {
+    if (!user) return;
+    const profileRef = doc(db, 'users', user.uid);
+    getDoc(profileRef).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.profileName) setNameInput(data.profileName);
+        if (data.profileEmail) setEmailInput(data.profileEmail);
+      }
+    });
+  }, [user]);
 
   const saveName = () => {
     const val = nameInput.trim() || 'Traveler';
     setNameInput(val);
-    localStorage.setItem('profileName', val);
+    if (user) setDoc(doc(db, 'users', user.uid), { profileName: val }, { merge: true });
     setEditingName(false);
   };
 
   const saveEmail = () => {
-    localStorage.setItem('profileEmail', emailInput.trim());
+    if (user) setDoc(doc(db, 'users', user.uid), { profileEmail: emailInput.trim() }, { merge: true });
     setEditingEmail(false);
   };
 

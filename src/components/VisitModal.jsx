@@ -26,7 +26,7 @@ const calcTotal = (exp) =>
   ['gas', 'food', 'lodging', 'activities', 'transport']
     .reduce((sum, k) => sum + (parseFloat(exp[k]) || 0), 0);
 
-const VisitModal = ({ state, onClose, onSave, initialData }) => {
+const VisitModal = ({ state, onClose, onSave, initialData, saveError }) => {
   const [formData, setFormData] = useState(() => initialData ? {
     title: initialData.title || '',
     date: initialData.date || '',
@@ -124,14 +124,11 @@ const VisitModal = ({ state, onClose, onSave, initialData }) => {
       : formData.activityTags;
 
     const hasCompanions = formData.companionTypes.length > 0 || companionNames.length > 0;
-    const hasAllExpenses = Object.values(formData.expenses).every((v) => v !== '');
 
     if (
       !formData.title.trim() ||
       !formData.date ||
       !hasCompanions ||
-      !hasAllExpenses ||
-      tags.length === 0 ||
       !formData.notes.trim() ||
       !formData.recommend
     ) {
@@ -239,7 +236,6 @@ const VisitModal = ({ state, onClose, onSave, initialData }) => {
                     placeholder="0"
                     value={formData.expenses[key]}
                     onChange={(e) => setExpense(key, e.target.value)}
-                    required
                   />
                 </div>
               ))}
@@ -338,6 +334,7 @@ const VisitModal = ({ state, onClose, onSave, initialData }) => {
             </div>
           </div>
 
+          {saveError && <p className="vf-form-error" style={{marginBottom: '8px'}}>{saveError}</p>}
           <div className="form-buttons">
             <button type="submit" className="save-btn">{initialData ? 'Save Changes' : 'Save Trip'}</button>
             <button type="button" className="cancel-btn" onClick={onClose}>Cancel</button>
