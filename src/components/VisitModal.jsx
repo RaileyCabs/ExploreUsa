@@ -7,7 +7,7 @@ const ACTIVITY_OPTIONS = [
   'Skiing', 'Fishing', 'Golf', 'Road Trip', 'Shopping', 'Camping',
 ];
 
-const emptyExpenses = { gas: '', food: '', lodging: '', activities: '', transport: '' };
+const emptyExpenses = { gas: '0', food: '0', lodging: '0', activities: '0', transport: '0' };
 
 const normalizeCompanionNames = (value) => {
   if (Array.isArray(value)) {
